@@ -284,7 +284,8 @@ function defaultData(){
   return{
     stages:DEFAULT_STAGES,
     users:[
-      {id:'u1',email:'admin@anayas.com',username:'oanaya',password:'anaya123',name:'Admin',role:'ADMIN'},
+      {id:'u1',email:'oanaya@anayas.com',username:'oanaya',password:'paint6765',name:'Oscar Anaya',role:'ADMIN'},
+      {id:'u-m',email:'manaya@anayas.com',username:'Manaya',password:'paint6765',name:'M',role:'ADMIN'},
       {id:'u2',email:'carlos@anayas.com',username:'carlos',password:'worker123',name:'Carlos Rivera',role:'EMPLOYEE',workerId:'w1'},
       {id:'u3',email:'mike@anayas.com',username:'mike',password:'worker123',name:'Mike Chen',role:'EMPLOYEE',workerId:'w2'},
     ],
@@ -1102,10 +1103,14 @@ function LoginPage({users,onLogin}){
   const [email,setEmail]=useState('');
   const [pw,setPw]=useState('');
   const [err,setErr]=useState('');
-  const HARDCODED_ADMIN={id:'u1',email:'admin@anayas.com',username:'oanaya',password:'anaya123',name:'Admin',role:'ADMIN'};
+  const HARDCODED_ADMINS=[
+    {id:'u1',email:'oanaya@anayas.com',username:'oanaya',password:'paint6765',name:'Oscar Anaya',role:'ADMIN'},
+    {id:'u-m',email:'manaya@anayas.com',username:'Manaya',password:'paint6765',name:'M',role:'ADMIN'},
+  ];
   const submit=()=>{
     const q=email.trim().toLowerCase();
-    if((q==='oanaya'||q==='admin@anayas.com')&&pw==='anaya123'){onLogin(HARDCODED_ADMIN);return;}
+    const ha=HARDCODED_ADMINS.find(a=>(a.username.toLowerCase()===q||a.email.toLowerCase()===q)&&pw===a.password);
+    if(ha){onLogin(ha);return;}
     const u=users.find(u=>(u.username||'').toLowerCase()===q||u.email.toLowerCase()===q||(u.name||'').toLowerCase()===q);
     if(!u||u.password!==pw){setErr('Invalid username or password');return;}
     onLogin(u);
@@ -1155,23 +1160,28 @@ ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(
 // ── PWA: Register inline Service Worker ──────────────────────────────────────
 if('serviceWorker' in navigator){
   const swCode = `
-    const CACHE = 'team-calendar-v1';
+    const CACHE = 'anaya-schedule-${Date.now()}';
     self.addEventListener('install', e => {
       self.skipWaiting();
-      e.waitUntil(caches.open(CACHE).then(c => c.addAll(['./', location.href])).catch(()=>{}));
     });
-    self.addEventListener('activate', e => { e.waitUntil(self.clients.claim()); });
-    self.addEventListener('fetch', e => {
-      if(e.request.method !== 'GET') return;
-      e.respondWith(
-        caches.match(e.request).then(cached => cached || fetch(e.request).then(resp => {
-          const clone = resp.clone();
-          caches.open(CACHE).then(c => c.put(e.request, clone));
-          return resp;
-        }).catch(() => cached))
+    self.addEventListener('activate', e => {
+      e.waitUntil(
+        caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))))
+        .then(() => self.clients.claim())
       );
     });
-  `;
+    self.addEventListener('fetch', e => {
+      if(e.request.method !== 'GET') return;
+      // Network-first: always try network, fall back to cache
+      e.respondWith(
+        fetch(e.request).then(resp => {
+          const clone = resp.clone();
+          caches.open('anaya-schedule-current').then(c => c.put(e.request, clone));
+          return resp;
+        }).catch(() => caches.match(e.request))
+      );
+    });
+  `.replace('${Date.now()}', Date.now());
   const swBlob = new Blob([swCode], {type:'text/javascript'});
   const swUrl = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl).catch(()=>{});
