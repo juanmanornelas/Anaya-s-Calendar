@@ -1,0 +1,17 @@
+{
+  "name": "anaya-calendar-sync",
+  "version": "1.0.0",
+  "description": "Sync server for Anaya's Calendar app",
+  "main": "sync-server.js",
+  "scripts": {
+    "start": "node sync-server.js",
+    "dev": "node sync-server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2"
+  },
+  "engines": {
+    "node": ">=16"
+  }
+}
