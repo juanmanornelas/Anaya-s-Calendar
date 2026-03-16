@@ -1122,7 +1122,7 @@ const HARDCODED_ADMINS=[
   {id:'u-ja',username:'janaya',password:'paint6765',name:'Jaime Anaya',role:'ADMIN'},
 ];
 
-function getToday(){return new Date().toISOString().split('T')[0];}
+function getToday(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function nd(d,n){const x=new Date(d+'T12:00:00');x.setDate(x.getDate()+n);return x.toISOString().slice(0,10);}
 function genId(){return Math.random().toString(36).slice(2,10);}
 function taskText(t){return typeof t==='string'?t:(t&&t.text?t.text:'');}
@@ -1388,7 +1388,7 @@ function reducer(state,action){
 
 function getWeekStart(date){const d=new Date(date),day=d.getDay();d.setDate(d.getDate()+(day===0?-6:1-day));d.setHours(0,0,0,0);return d;}
 function addDays(date,n){const d=new Date(date);d.setDate(d.getDate()+n);return d;}
-function toDateStr(date){return new Date(date).toISOString().split('T')[0];}
+function toDateStr(date){const d=new Date(date);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function formatDate(date){return new Date(date).toLocaleDateString('en-US',{month:'short',day:'numeric'});}
 function formatWeekRange(ws){return`${formatDate(ws)} – ${formatDate(addDays(ws,6))}`;}
 function daysInMonth(y,m){return new Date(y,m+1,0).getDate();}
