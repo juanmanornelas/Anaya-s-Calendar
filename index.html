@@ -398,12 +398,26 @@ body{font-family:'Bricolage Grotesque',sans-serif;background:var(--bg);color:var
 /* ── Date Number ──────────────────────────────────────────── */
 .cal-date-num{
   font-size:var(--cal-date-size,12px);font-weight:700;color:var(--cal-date-color,var(--text2));
-  min-width:22px;min-height:22px;display:flex;align-items:center;
-  justify-content:center;border-radius:50%;margin-bottom:2px;
+  display:block;
+  padding:2px 6px;
+  margin-bottom:2px;
   flex-shrink:0;
 }
 .cal-date-today{
-  background:var(--blue);color:#fff;font-weight:800;
+  background:var(--cal-today-color,#2563eb);
+  color:#fff;font-weight:800;
+  margin:-4px -3px 2px -3px;
+  padding:4px 6px;
+}
+.cal-date-other{
+  background:var(--cal-day-color,#e2e8f0);
+  color:var(--cal-date-color,#64748b);
+  margin:-4px -3px 2px -3px;
+  padding:4px 6px;
+}
+.cal-other-month .cal-date-other{
+  background:var(--cal-day-color-dim,#f1f5f9);
+  color:var(--border2);
 }
 
 /* ── Schedule Block ───────────────────────────────────────── */
@@ -1091,6 +1105,8 @@ function applyCalPrefs(prefs){
   root.style.setProperty('--cal-date-color',prefs.dateColor||'var(--text2-raw,#64748b)');
   root.style.setProperty('--cal-border-color',prefs.borderColor||'var(--border2-raw,#cbd5e1)');
   root.style.setProperty('--cal-border-width',(prefs.borderWidth||1)+'px');
+  root.style.setProperty('--cal-today-color',prefs.todayColor||'#2563eb');
+  root.style.setProperty('--cal-day-color',prefs.dayColor||'#e2e8f0');
 }
 function nd(d,n){const x=new Date(d+'T12:00:00');x.setDate(x.getDate()+n);return x.toISOString().slice(0,10);}
 function genId(){return Math.random().toString(36).slice(2,10);}
@@ -3328,7 +3344,7 @@ function SchedulerPage({data,isAdmin,session,dispatch,toast}){
   const [calPrefs,setCalPrefs]=useState(()=>{
     const p=getCalPrefs(session&&session.username);
     applyCalPrefs(p);
-    return {dateSize:p.dateSize||12,dateColor:p.dateColor||'#64748b',borderColor:p.borderColor||'#cbd5e1',borderWidth:p.borderWidth||1};
+    return {dateSize:p.dateSize||12,dateColor:p.dateColor||'#64748b',borderColor:p.borderColor||'#cbd5e1',borderWidth:p.borderWidth||1,todayColor:p.todayColor||'#2563eb',dayColor:p.dayColor||'#e2e8f0'};
   });
   const updateCalPref=(key,val)=>{
     const updated={...calPrefs,[key]:val};
@@ -3583,10 +3599,28 @@ function SchedulerPage({data,isAdmin,session,dispatch,toast}){
             React.createElement('span',{style:{fontSize:'12px',fontWeight:700,color:'var(--text)',minWidth:'20px'}},calPrefs.borderWidth+'px')
           )
         ),
+        React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:'4px'}},
+          React.createElement('label',{style:{fontSize:'10px',fontWeight:800,textTransform:'uppercase',letterSpacing:'.5px',color:'var(--text3)'}},'Day Banner Color'),
+          React.createElement('div',{style:{display:'flex',alignItems:'center',gap:'8px'}},
+            React.createElement('input',{type:'color',value:calPrefs.dayColor,
+              onChange:e=>updateCalPref('dayColor',e.target.value),
+              style:{width:'36px',height:'28px',border:'1px solid var(--border)',borderRadius:'6px',cursor:'pointer',padding:'2px'}}),
+            React.createElement('span',{style:{fontSize:'11px',color:'var(--text3)'}},calPrefs.dayColor)
+          )
+        ),
+        React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:'4px'}},
+          React.createElement('label',{style:{fontSize:'10px',fontWeight:800,textTransform:'uppercase',letterSpacing:'.5px',color:'var(--text3)'}},'Today Highlight Color'),
+          React.createElement('div',{style:{display:'flex',alignItems:'center',gap:'8px'}},
+            React.createElement('input',{type:'color',value:calPrefs.todayColor,
+              onChange:e=>updateCalPref('todayColor',e.target.value),
+              style:{width:'36px',height:'28px',border:'1px solid var(--border)',borderRadius:'6px',cursor:'pointer',padding:'2px'}}),
+            React.createElement('span',{style:{fontSize:'11px',color:'var(--text3)'}},calPrefs.todayColor)
+          )
+        ),
         React.createElement('button',{
           className:'btn btn-ghost btn-sm',
           onClick:()=>{
-            const def={dateSize:12,dateColor:'#64748b',borderColor:'#cbd5e1',borderWidth:1};
+            const def={dateSize:12,dateColor:'#64748b',borderColor:'#cbd5e1',borderWidth:1,todayColor:'#2563eb',dayColor:'#e2e8f0'};
             setCalPrefs(def);applyCalPrefs(def);saveCalPrefs(session&&session.username,def);
           },
           style:{fontSize:'11px',color:'var(--text3)'}
@@ -3632,7 +3666,7 @@ function SchedulerPage({data,isAdmin,session,dispatch,toast}){
                     onDrop:isAdmin&&cur?e=>onDrop(e,ds,cur):null,
                   },
                     // Date number — hidden in week view (shown in column header)
-                    calView==='month'&&React.createElement('div',{className:'cal-date-num'+(isToday?' cal-date-today':'')},date.getDate()),
+                    calView==='month'&&React.createElement('div',{className:'cal-date-num'+(isToday?' cal-date-today':' cal-date-other')},date.getDate()),
 
                     // Schedule blocks active on this date
                     blocksHere.map(block=>{
@@ -3686,10 +3720,13 @@ function SchedulerPage({data,isAdmin,session,dispatch,toast}){
                             React.createElement('span',{className:'cal-block-stage',style:{background:stgHex,color:'#fff',boxShadow:'0 1px 4px '+stgHex+'88'}},trStage(block.stage))
                           )
                         ),
-                        // Continuation days: type + stage pill in top-right corner
-                        !isFirst&&React.createElement('div',{style:{display:'flex',justifyContent:'flex-end',gap:'3px',marginBottom:'2px',flexWrap:'wrap'}},
-                          blockPt&&React.createElement('span',{style:{fontSize:'9px',fontWeight:800,padding:'2px 6px',borderRadius:'20px',background:'rgba(0,0,0,.18)',color:'#fff',textTransform:'uppercase',letterSpacing:'.3px',whiteSpace:'nowrap'}},(blockPt.icon?blockPt.icon+' ':'')+blockPt.name),
-                          React.createElement('span',{className:'cal-block-stage',style:{background:stgHex,color:'#fff',boxShadow:'0 1px 4px '+stgHex+'88'}},trStage(block.stage))
+                        // Continuation days: job name + type + stage pill
+                        !isFirst&&React.createElement('div',{className:'cal-block-header'},
+                          React.createElement('span',{className:'cal-block-name',style:{color:jc.bg}},job?job.name||job.address:''),
+                          React.createElement('div',{style:{display:'flex',gap:'3px',alignItems:'center',flexShrink:0,flexWrap:'wrap'}},
+                            blockPt&&React.createElement('span',{style:{fontSize:'9px',fontWeight:800,padding:'2px 6px',borderRadius:'20px',background:'rgba(0,0,0,.18)',color:'#fff',textTransform:'uppercase',letterSpacing:'.3px',whiteSpace:'nowrap'}},(blockPt.icon?blockPt.icon+' ':'')+blockPt.name),
+                            React.createElement('span',{className:'cal-block-stage',style:{background:stgHex,color:'#fff',boxShadow:'0 1px 4px '+stgHex+'88'}},trStage(block.stage))
+                          )
                         ),
                         // Workers — shown on every day that has assignments
                         blockWorkers.length>0&&React.createElement('div',{className:'cal-block-workers'},
