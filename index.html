@@ -4965,37 +4965,16 @@ function App(){
     return ()=>clearInterval(id);
   },[session]);
 
-  // ── Autosave every 30s — ONLY if dirty (data actually changed) ───────────
-  useEffect(()=>{
-    if(!getSyncUrl()) return;
-    const INTERVAL_MS=30*1000;
-    const run=async()=>{
-      if(!session) return;
-      if(saveBusy||syncBusy) return;
-      if(autoSaveStatus==='conflict') return; // never save during unresolved conflict
-      if(!isDirty.current) return; // nothing changed — skip silently
-      if(!lastKnownSaveAt.current) return; // haven't confirmed cloud version yet — wait
-      // 1. Check server timestamp for conflicts
-      const check=await cloudCheckTimestamp();
-      if(!check||!check.savedAt){
-        const res=await cloudSave(data,session.name);
-        if(res.ok){
-          lastKnownSaveAt.current=res.savedAt;
-          isDirty.current=false;
-          setAutoSaveTime(new Date());
-          setAutoSaveStatus('saved');
-          setTimeout(()=>setAutoSaveStatus(''),4000);
-        }
-        return;
-      }
-      // 2. Conflict — server is newer than what we know — NEVER auto-resolve, wait for human
-      if(lastKnownSaveAt.current&&check.savedAt>lastKnownSaveAt.current){
-        setConflictInfo({savedBy:check.savedBy||'Someone',savedAt:check.savedAt});
-        setAutoSaveStatus('conflict');
-        return; // stop all autosave until human resolves
-      }
-      // 3. No conflict — save
-      setAutoSaveStatus('saving');
+  // ── Debounced autosave — saves 30s after the LAST change, not the first ─────
+  const debounceTimer=React.useRef(null);
+  const doAutoSave=React.useCallback(async()=>{
+    if(!session||!getSyncUrl()) return;
+    if(saveBusy||syncBusy) return;
+    if(autoSaveStatus==='conflict') return;
+    if(!isDirty.current) return;
+    if(!lastKnownSaveAt.current) return;
+    const check=await cloudCheckTimestamp();
+    if(!check||!check.savedAt){
       const res=await cloudSave(data,session.name);
       if(res.ok){
         lastKnownSaveAt.current=res.savedAt;
@@ -5003,16 +4982,39 @@ function App(){
         setAutoSaveTime(new Date());
         setAutoSaveStatus('saved');
         setTimeout(()=>setAutoSaveStatus(''),4000);
-      } else {
-        setAutoSaveStatus('');
       }
-    };
-    const id=setInterval(run,INTERVAL_MS);
-    return ()=>clearInterval(id);
+      return;
+    }
+    if(lastKnownSaveAt.current&&check.savedAt>lastKnownSaveAt.current){
+      setConflictInfo({savedBy:check.savedBy||'Someone',savedAt:check.savedAt});
+      setAutoSaveStatus('conflict');
+      return;
+    }
+    setAutoSaveStatus('saving');
+    const res=await cloudSave(data,session.name);
+    if(res.ok){
+      lastKnownSaveAt.current=res.savedAt;
+      isDirty.current=false;
+      setAutoSaveTime(new Date());
+      setAutoSaveStatus('saved');
+      setTimeout(()=>setAutoSaveStatus(''),4000);
+    } else {
+      setAutoSaveStatus('');
+    }
   },[session,data,saveBusy,syncBusy,autoSaveStatus]);
 
-
-  const dispatch=useCallback(action=>{setData(d=>{undoStack.current=[d,...undoStack.current].slice(0,30);const next=reducer(d,action);saveData(next);isDirty.current=true;return next;});},[]);
+  const dispatch=useCallback(action=>{
+    setData(d=>{
+      undoStack.current=[d,...undoStack.current].slice(0,30);
+      const next=reducer(d,action);
+      saveData(next);
+      isDirty.current=true;
+      // Reset debounce timer — save 30s after the last change
+      if(debounceTimer.current) clearTimeout(debounceTimer.current);
+      debounceTimer.current=setTimeout(()=>doAutoSave(),10*1000);
+      return next;
+    });
+  },[doAutoSave]);
 
   // Ctrl+Z undo
   useEffect(()=>{
